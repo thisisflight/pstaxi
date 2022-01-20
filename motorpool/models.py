@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -21,6 +22,15 @@ class Brand(models.Model):
 
     def get_absolute_url(self):
         return reverse('motorpool:brand_detail', args=[str(self.pk)])
+
+    def get_update_url(self):
+        return reverse('motorpool:brand_update', args=[str(self.pk)])
+
+    def get_delete_url(self):
+        return reverse('motorpool:brand_delete', args=[str(self.pk)])
+
+    def get_auto_create_url(self):
+        return reverse('motorpool:auto_create', args=[str(self.pk)])
 
     def save(self, *args, **kwargs):
         self.slug = generate_unique_slug(Brand, self.title)
@@ -95,3 +105,11 @@ class VehiclePassport(models.Model):
 
     class Meta:
         verbose_name_plural = 'Паспорта машин'
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name='favorites')
+    brand = models.ForeignKey(Brand, null=True, on_delete=models.CASCADE, related_name='favorites')
+
+    def __str__(self):
+        return f'{self.user.username} - {self.brand.title}'
