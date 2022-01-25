@@ -1,7 +1,9 @@
 from django.contrib import messages
-from django.http import HttpResponseForbidden, HttpResponseRedirect
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 from django.views.generic import (ListView, DetailView, CreateView,
                                   UpdateView, DeleteView, TemplateView)
 from django.views.generic.edit import ProcessFormView
@@ -11,11 +13,10 @@ from .forms import (SendEmailForm, BrandCreationForm, BrandUpdateForm,
                     AutoFormSet, BrandAddToFavoriteForm)
 
 
-class LoginRequiredMixin:
-    def get(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return HttpResponseForbidden('Недостаточно прав для добавления нового объекта')
-        return super().get(request, *args, **kwargs)
+@require_POST
+def set_paginate_view(request):
+    request.session['brand_list_paginate_by'] = request.POST.get('item_count', 0)
+    return HttpResponseRedirect(reverse_lazy('motorpool:brand_list'))
 
 
 class BrandCreateView(LoginRequiredMixin, CreateView):
@@ -62,6 +63,14 @@ class BrandList(ListView):
     def get_queryset(self):
         queryset = super().get_queryset()
         return queryset.order_by('-pk')
+
+    def get_paginate_by(self, queryset):
+        paginate_by = super().get_paginate_by(queryset)
+        if 'brand_list_paginate_by' in self.request.session:
+            paginate_value = self.request.session['brand_list_paginate_by']
+            if paginate_value.isdigit():
+                paginate_by = paginate_value
+        return paginate_by
 
 
 class BrandDetailView(DetailView):

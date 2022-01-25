@@ -13,6 +13,7 @@ urlpatterns = [
     path('brand-update/<int:pk>/', views.BrandUpdateView.as_view(), name='brand_update'),
     path('brand-delete/<int:pk>/', views.BrandDeleteView.as_view(), name='brand_delete'),
     path('brand-add-to-favorite/', require_POST(views.BrandAddToFavoriteView.as_view()), name='brand_add_to_favorite'),
+    path('brand-set-paginate/', views.set_paginate_view, name='brand_list_set_paginate'),
     # Auto
     path('auto-create/<int:brand_pk>/', views.AutoCreateView.as_view(), name='auto_create'),
     # other
