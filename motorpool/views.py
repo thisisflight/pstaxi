@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count, Sum, Q, Prefetch, F, Case, When, IntegerField, Avg
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse_lazy
@@ -8,9 +9,9 @@ from django.views.generic import (ListView, DetailView, CreateView,
                                   UpdateView, DeleteView, TemplateView)
 from django.views.generic.edit import ProcessFormView
 
-from motorpool.models import Brand, Favorite
+from motorpool.models import Brand, Favorite, Auto, AutoReview, AutoRent
 from .forms import (SendEmailForm, BrandCreationForm, BrandUpdateForm,
-                    AutoFormSet, BrandAddToFavoriteForm)
+                    AutoFormSet, BrandAddToFavoriteForm, AutoReviewForm, AutoRentForm, AutoFilterForm)
 
 
 @require_POST
@@ -149,3 +150,101 @@ class BrandAddToFavoriteView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         messages.success(self.request, f'Бренд {form.cleaned_data["brand"]} добавлен в избранное')
         return super().form_valid(form)
+
+
+def auto_list(request):
+    whens = [
+        When(pts__engine_volume__gt=2000, then=0.2),
+        When(pts__engine_volume__gt=1600, then=0.1),
+    ]
+
+    cars_qs = Auto.objects.select_related('pts').annotate(
+        tax=F('pts__engine_volume') * Case(*whens,
+                                           default=0,
+                                           output_field=IntegerField()
+                                           ))
+
+    prefetch_all_cars = Prefetch('cars', queryset=cars_qs.all(), to_attr='all_cars_list')
+    prefetch_new_cars = Prefetch('cars', queryset=cars_qs.filter(year__gt=2010), to_attr='new_cars_list')
+    prefetch_old_cars = Prefetch('cars', queryset=cars_qs.filter(year__lt=2010), to_attr='old_cars_list')
+    qs = Brand.objects.prefetch_related(prefetch_all_cars, prefetch_new_cars, prefetch_old_cars).annotate(
+        car_count=Count('cars'),
+        total_engine_power=Sum('cars__pts__engine_power'),
+        new_cars=Count('cars', Q(cars__year__gt=2010)),
+        old_cars=Count('cars', Q(cars__year__lt=2010))
+    )
+    return render(request, 'motorpool/auto_list.html', {'object_list': qs})
+
+
+class AutoDetailView(DetailView):
+    model = Auto
+    template_name = 'motorpool/auto_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['reviews'] = self.object.reviews.select_related('user')
+        context['review_form'] = AutoReviewForm(initial={'user': self.request.user, 'auto': self.object})
+        context['rent_form'] = AutoRentForm(initial={'user': self.request.user, 'auto': self.object})
+        return context
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = qs.select_related('brand').annotate(review_count=Count('reviews'), rate=Avg('reviews__rate'))
+        return qs
+
+
+class AutoSendReview(CreateView):
+    model = AutoReview
+    form_class = AutoReviewForm
+
+    def get_success_url(self):
+        return self.object.auto.get_absolute_url()
+
+    def form_invalid(self, form):
+        messages.error(self.request, form.errors)
+        return HttpResponseRedirect(form.get_redirect_url())
+
+
+class AutoRentView(CreateView):
+    model = AutoRent
+    form_class = AutoRentForm
+
+    def get_success_url(self):
+        return self.object.auto.get_absolute_url()
+
+    def form_invalid(self, form):
+        messages.error(self.request, form.errors)
+        return HttpResponseRedirect(form.get_redirect_url())
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Вы успешно забронировали автомобиль!')
+        return super().form_valid(form)
+
+
+class AutoListView(ListView):
+    model = Auto
+    template_name = 'motorpool/auto_list.html'
+    paginate_by = 50
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['count'] = self.object_list.count()
+        context['filter_form'] = AutoFilterForm(self.request.GET)
+        return context
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        form = AutoFilterForm(self.request.GET)
+        if form.is_valid():
+            filter_brand = form.cleaned_data['brand']
+            filter_class = form.cleaned_data['auto_class']
+            filter_options = form.cleaned_data['options']
+            if filter_brand:
+                queryset = queryset.filter(brand=filter_brand)
+            if filter_class:
+                queryset = queryset.filter(auto_class__in=filter_class)
+            if filter_options:
+                for option in filter_options:
+                    queryset = queryset.filter(options__in=[option])
+        queryset = queryset.select_related('brand').annotate(review_count=Count('reviews'), rate=Avg('reviews__rate'))
+        return queryset

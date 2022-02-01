@@ -84,6 +84,13 @@ class Auto(models.Model):
     def __str__(self):
         return self.number
 
+    def get_absolute_url(self):
+        return reverse('motorpool:auto_detail', args=[str(self.pk)])
+
+    @property
+    def logo_url(self):
+        return self.logo.url if self.logo else f'{settings.STATIC_URL}images/brand-car.png'
+
     def display_engine_power(self):
         return self.pts.engine_power
 
@@ -113,3 +120,24 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.brand.title}'
+
+
+class AutoReview(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name='reviews')
+    auto = models.ForeignKey(Auto, null=True, on_delete=models.CASCADE, related_name='reviews')
+    rate = models.PositiveSmallIntegerField(default=0, verbose_name='Оценка')
+    text = models.TextField(max_length=500, default='', verbose_name='Текст отзыва')
+    created = models.DateField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return f'{self.user.username} - {self.auto.number}'
+
+
+class AutoRent(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name='auto_rents')
+    auto = models.ForeignKey(Auto, null=True, on_delete=models.CASCADE, related_name='auto_rents')
+    date_start = models.DateField(verbose_name='Дата начала')
+    date_end = models.DateField(verbose_name='Дата окончания')
+
+    def __str__(self):
+        return f'{self.user.username} - {self.auto.number}'

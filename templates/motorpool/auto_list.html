@@ -1,0 +1,63 @@
+{% extends "__base.html" %}
+{% load pstaxitags %}
+{% block title %}PS-Taxi - список автомобилей
+{% endblock %}
+
+{% block content %}
+
+    {% with "Автомобили PS-Taxi" as header %}
+        {% include "inc/_wrapper.html" %}
+    {% endwith %}
+
+    <!-- START CARD -->
+    <div class="container my-4 py-4">
+        <h3>Найдено автомобилей: {{ count }}</h3>
+        <p>Выбери лучшее авто на свой вкус</p>
+        <div class="row mt-4">
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-lg">
+                    <div class="card-body">
+                        <form action="." method="get">
+                            {{ filter_form }}
+                            <div class="mt-3">
+                                <button type="submit" class="btn btn-primary">Фильтровать</button>
+                                <a href="{% url 'motorpool:auto_list' %}" class="btn btn-outline-danger">Сбросить</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                {% for auto in object_list %}
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body row">
+                            <div class="col-lg-3">
+                                <a href="{{ auto.get_absolute_url }}">
+                                    <img src="{{ auto.logo_url }}" class="img-fluid" alt="auto">
+                                </a>
+                            </div>
+                            <div class="col-lg-9">
+                                <small class="text-muted">{{ auto.get_auto_class_display }}</small>
+                                <h5>
+                                    <a href="{{ auto.get_absolute_url }}" class="text-decoration-none">{{ auto.brand.title }}</a>
+                                </h5>
+                                <p>
+                                    <span class="badge bg-warning text-white">{{ auto.rate|floatformat:1|default:0 }}/5</span>
+                                    <small>({{ auto.review_count }} {% plural auto.review_count "отзыв" "отзыва" "отзывов" %})</small>
+                                </p>
+                                <p class="mt-4">год выпуска: {{ auto.year }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                {% include "inc/_pagination.html" %}
+            </div>
+
+        </div>
+    </div>
+    <!-- END CARD -->
+
+    {% include "inc/_cta.html" %}
+
+{% endblock %}
