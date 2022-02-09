@@ -20,6 +20,4 @@ urlpatterns = [
     path('auto-detail/<int:pk>/', views.AutoDetailView.as_view(), name='auto_detail'),
     path('auto-send-review/', require_POST(views.AutoSendReview.as_view()), name='auto_send_review'),
     path('auto-rent/', require_POST(views.AutoRentView.as_view()), name='auto_rent'),
-    # other
-    path('send-email/', views.send_email_view, name='send_email'),
 ]

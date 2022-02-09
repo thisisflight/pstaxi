@@ -8,7 +8,7 @@
 
     {% for i in paginator.page_range %}
     <li class="page-item {% if page_obj.number == i %}active{% endif %}">
-        <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+        <a class="page-link" href="?{% if is_filter_used %}{{ query }}&{% endif %}page={{ i }}">{{ i }}</a>
     </li>
     {% endfor %}
 

@@ -51,7 +51,7 @@
                     </div>
                 {% endfor %}
 
-                {% include "inc/_pagination.html" %}
+                {% include "inc/_pagination.html" with is_filter_used=is_filter_used query=query %}
             </div>
 
         </div>

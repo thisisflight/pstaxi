@@ -10,7 +10,8 @@ from django.views.generic import (ListView, DetailView, CreateView,
 from django.views.generic.edit import ProcessFormView
 
 from motorpool.models import Brand, Favorite, Auto, AutoReview, AutoRent
-from .forms import (SendEmailForm, BrandCreationForm, BrandUpdateForm,
+from utils.cache import CacheMixin
+from .forms import (BrandCreationForm, BrandUpdateForm,
                     AutoFormSet, BrandAddToFavoriteForm, AutoReviewForm, AutoRentForm, AutoFilterForm)
 
 
@@ -74,7 +75,7 @@ class BrandList(ListView):
         return paginate_by
 
 
-class BrandDetailView(DetailView):
+class BrandDetailView(CacheMixin, DetailView):
     model = Brand
 
     def get_context_data(self, **kwargs):
@@ -82,31 +83,6 @@ class BrandDetailView(DetailView):
         context['cars'] = self.object.cars.all()
         context['favorite_form'] = BrandAddToFavoriteForm(initial={'user': self.request.user, 'brand': self.object})
         return context
-
-
-def send_email_view(request):
-    if request.method == 'POST':
-        # Если метод запрос POST (нажата кнопка Отправить e-mail),
-        # то создаем экземпляр формы с данными из запроса
-        form = SendEmailForm(request.POST)
-        if form.is_valid():
-            # получаем поля формы, прошедшие валидацию
-            cd = form.cleaned_data
-            email = cd.get('email', '')
-            comment = cd.get('comment', '')
-            checkbox1 = cd.get('checkbox1', False)
-            checkbox2 = cd.get('checkbox2', False)
-            variant = int(cd.get('variant', 1))
-            variants = cd.get('variants', [])
-        else:
-            messages.error(request, form.non_field_errors())
-    else:
-        # Если метод запрос GET (страница открыта в браузере),
-        # то создаем пустой экземпляр формы
-        form = SendEmailForm()
-
-    # Передаем форму в контекст с именем form
-    return render(request, 'motorpool/send_email.html', {'form': form})
 
 
 class AutoCreateView(LoginRequiredMixin, ProcessFormView, TemplateView):
@@ -176,7 +152,7 @@ def auto_list(request):
     return render(request, 'motorpool/auto_list.html', {'object_list': qs})
 
 
-class AutoDetailView(DetailView):
+class AutoDetailView(CacheMixin, DetailView):
     model = Auto
     template_name = 'motorpool/auto_detail.html'
 
@@ -224,12 +200,16 @@ class AutoRentView(CreateView):
 class AutoListView(ListView):
     model = Auto
     template_name = 'motorpool/auto_list.html'
-    paginate_by = 50
+    paginate_by = 20
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['count'] = self.object_list.count()
         context['filter_form'] = AutoFilterForm(self.request.GET)
+        is_filter_used = bool(self.request.GET)
+        if is_filter_used:
+            context['query'] = '&'.join(['='.join(item) for item in self.request.GET.items()])
+        context['is_filter_used'] = is_filter_used
         return context
 
     def get_queryset(self):
